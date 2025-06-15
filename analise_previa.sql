@@ -108,7 +108,7 @@ WITH performance_municipios AS (
     JOIN
         localidade l ON ro.id_local = l.id_local
     WHERE
-        ro.data_notificacao BETWEEN '2022-01-01' AND '2022-03-31'
+        ro.data_notificacao BETWEEN '2022-01-01' AND '2023-03-31'
     GROUP BY
         l.municipio, l.estado
     HAVING
@@ -195,6 +195,50 @@ ORDER BY
     total_obitos DESC
 LIMIT 100;
 
+
+-- Análise de Latência de Atualização (Notification Lag) por Origem e Hora do Dia
+WITH lag_de_atualizacao AS (
+    -- 1. Calcula a diferença de tempo e extrai componentes de data/hora
+    SELECT
+        ro._id,
+        se.origem,
+        ro.data_notificacao,
+        ro.atualizado_em,
+        -- Calcula o intervalo exato entre a atualização e a notificação
+        (ro.atualizado_em - ro.data_notificacao) AS tempo_ate_atualizacao,
+        -- Extrai a hora do dia da notificação para agruparmos por período
+        EXTRACT(HOUR FROM ro.data_notificacao) AS hora_da_notificacao
+    FROM
+        registro_ocupacao ro
+    JOIN
+        status_envio se ON ro.id_status = se.id_status
+    WHERE
+        -- Garante que as datas são válidas para o cálculo
+        ro.atualizado_em >= ro.data_notificacao
+)
+-- 2. Agrega os resultados para calcular as métricas de latência
+SELECT
+    origem,
+    hora_da_notificacao,
+    -- Conta quantos registros estão em cada grupo (origem/hora)
+    COUNT(*) AS total_registros_no_grupo,
+    -- Média de tempo: útil, mas sensível a valores extremos (outliers)
+    AVG(tempo_ate_atualizacao) AS media_de_lag,
+    -- Mediana (percentil 50): representa o valor "do meio", mais robusto a outliers
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY tempo_ate_atualizacao) AS mediana_de_lag,
+    -- Percentil 95: mostra o tempo de lag para 95% dos registros, bom para entender o "pior cenário" comum
+    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY tempo_ate_atualizacao) AS p95_lag,
+    -- Latência Mínima e Máxima: ajuda a identificar a gama de valores e possíveis erros de dados
+    MIN(tempo_ate_atualizacao) AS min_lag,
+    MAX(tempo_ate_atualizacao) AS max_lag
+FROM
+    lag_de_atualizacao
+GROUP BY
+    origem,
+    hora_da_notificacao
+ORDER BY
+    origem,
+    media_de_lag DESC; -- Ordena para ver as piores médias de lag por origem
 
 -- ===================================================================================
 -- CONSIDERAÇÕES DE PERFORMANCE
