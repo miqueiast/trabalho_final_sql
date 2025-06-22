@@ -23,65 +23,68 @@ Esta View foi criada como um passo inicial fundamental para facilitar todas as a
     * Emprega `ROW_NUMBER()` com `PARTITION BY id_hospital, atualizado_em::date` e `ORDER BY atualizado_em DESC, _id DESC` para selecionar o registro mais recente para cada hospital em um dado dia, evitando duplicidades e garantindo a atualização dos dados.
 * **Aprendizado sobre os Dados:**
     * Fornece uma base de dados limpa e pronta para consumo, eliminando a necessidade de repetir lógicas de tratamento em cada consulta.
-    * Garante que as análises sejam feitas sobre os dados mais atualizados e consistentes.
+    * Garante que as análises sejam feitas sobre os dados mais **atualizados e consistentes**.
 
 ---
 
-### 2. Análise de Ocupação de UTI e Variação (CTE)
+### 2. CTEs (Common Table Expressions)
 
-Esta consulta utiliza Common Table Expressions (CTEs) para calcular a média móvel da ocupação de leitos de UTI e a variação percentual em relação a essa média. É útil para identificar tendências e mudanças significativas na ocupação ao longo do tempo.
+Esta seção agrupa duas consultas que utilizam CTEs para análises de ocupação e desempenho.
+
+#### 2.1. Análise de Ocupação de UTI e Variação
+
+Esta consulta utiliza CTEs para calcular a **média móvel de 7 dias** da ocupação de leitos de UTI e a variação percentual em relação a essa média. É útil para identificar tendências e mudanças significativas na ocupação ao longo do tempo.
 
 * **Lógica Aplicada:**
     * **`ocupacao_uti_diaria`**: Calcula a soma total de leitos de UTI ocupados por dia, agrupando as ocupações de casos suspeitos, confirmados e COVID.
     * **`media_movel_uti`**: Calcula a média móvel de 7 dias da `total_leitos_uti_dia` usando uma janela de agregação (`ROWS BETWEEN 6 PRECEDING AND CURRENT ROW`), suavizando as flutuações diárias.
-    * A consulta final calcula a variação percentual do dia atual em relação à média móvel, destacando desvios.
+    * A consulta final calcula a **variação percentual** do dia atual em relação à média móvel, destacando desvios.
 * **Aprendizado sobre os Dados:**
-    * Permite observar a **tendência** da ocupação de UTI, identificando se há um aumento ou queda sustentada.
+    * Permite observar a **tendência da ocupação de UTI**, identificando se há um aumento ou queda sustentada.
     * A **variação percentual** ajuda a quantificar o quão acima ou abaixo da tendência a ocupação está em um determinado dia, o que pode indicar picos ou quedas abruptas.
 
----
-
-### 3. Análise de Ocupação Hospitalar por Estado (CTE)
+#### 2.2. Análise de Ocupação Hospitalar por Estado
 
 Esta CTE oferece uma visão consolidada da ocupação hospitalar, altas e óbitos por estado e por mês. É ideal para comparar a performance e a carga hospitalar entre diferentes regiões.
 
 * **Lógica Aplicada:**
-    * **`ocupacao_por_estado`**: Agrupa os dados da `vw_analises` por estado e mês (`DATE_TRUNC('month', data_notificacao)`), somando as ocupações totais (clínica + UTI), altas e óbitos.
-    * A consulta final calcula a `taxa_mortalidade` por estado e mês.
+    * **`ocupacao_por_estado`**: Agrupa os dados da `vw_analises` por estado e mês (`DATE_TRUNC('month', data_notificacao)`), extraindo o ano e o número do mês.
+    * Soma as ocupações totais (clínica + UTI), altas e óbitos.
+    * A consulta final calcula a **`taxa_mortalidade`** por estado e mês, apresentando o nome do mês por extenso usando uma estrutura `CASE`.
 * **Aprendizado sobre os Dados:**
     * Permite comparar a **carga hospitalar** e a **taxa de mortalidade** entre diferentes estados ao longo do tempo.
-    * Identifica estados com maior ou menor sucesso na gestão de casos e recuperação de pacientes.
+    * Identifica estados com maior ou menor sucesso na gestão de casos e recuperação de pacientes, com uma apresentação mais legível dos meses.
 
 ---
 
-### 4. Análise de Municípios com Maior Taxa de Mortalidade (Subconsulta)
+### 3. Subconsulta (Análise de Performance de Municípios com Subconsulta)
 
 Esta consulta utiliza uma subconsulta para identificar os municípios com as maiores taxas de mortalidade em um período específico.
 
 * **Lógica Aplicada:**
-    * A **subconsulta** agrega os totais de óbitos e altas por município e estado para um período específico (`BETWEEN '2022-01-01' AND '2023-03-31'`), garantindo que apenas municípios com pelo menos uma alta sejam considerados.
-    * A consulta externa calcula a `taxa_mortalidade` e ordena os resultados para mostrar os 20 municípios com as maiores taxas.
+    * A **subconsulta** agrega os totais de óbitos e altas por município e estado para um período específico (`BETWEEN '2022-01-01' AND '2023-03-31'`), garantindo que apenas municípios com pelo menos uma alta sejam considerados (`HAVING SUM(...) > 0`).
+    * A consulta externa calcula a **`taxa_mortalidade`** e ordena os resultados para mostrar os municípios com as maiores taxas.
 * **Aprendizado sobre os Dados:**
-    * Ajuda a **direcionar esforços** e recursos para municípios que apresentam as maiores taxas de mortalidade, indicando possíveis problemas na infraestrutura de saúde ou no manejo de casos.
-    * Permite um foco geográfico nas áreas mais críticas.
+    * Ajuda a **direcionar esforços e recursos** para municípios que apresentam as maiores taxas de mortalidade, indicando possíveis problemas na infraestrutura de saúde ou no manejo de casos.
+    * Permite um foco geográfico nas áreas mais críticas para intervenções.
 
 ---
 
-### 5. Detecção de Anomalias Temporais (Picos Isolados)
+### 4. Detecção de Anomalias Temporais (Picos Isolados)
 
 Esta consulta foi projetada para detectar "picos isolados" na ocupação de UTI, que podem indicar eventos incomuns ou anomalias nos dados.
 
 * **Lógica Aplicada:**
     * **`ocupacao_diaria`**: Soma a ocupação confirmada de UTI por dia.
-    * **`estatisticas`**: Calcula a média móvel e o desvio padrão da `ocupacao_uti` em uma janela de 15 dias (7 dias antes, o dia atual, e 7 dias depois).
+    * **`estatisticas`**: Calcula a **média móvel** e o **desvio padrão** da `ocupacao_uti` em uma janela de 15 dias (7 dias antes, o dia atual, e 7 dias depois). Os resultados são arredondados para maior clareza.
     * A consulta final identifica anomalias comparando a `ocupacao_uti` do dia com sua `media_movel` e `desvio_padrao` através do **Z-score**. Um `ABS(Z-score) > 3` é usado como critério para anomalia, indicando que o ponto está a mais de 3 desvios padrão da média.
 * **Aprendizado sobre os Dados:**
     * Permite identificar dias específicos com **aumentos ou quedas incomuns** na ocupação de UTI que merecem investigação.
-    * Essas anomalias podem ser causadas por erros de dados, eventos específicos (ex: surtos localizados), ou mudanças na metodologia de registro.
+    * Essas anomalias podem ser causadas por erros de dados, eventos específicos (ex: surtos localizados), ou mudanças na metodologia de registro, exigindo uma análise mais aprofundada.
 
 ---
 
-### 6. Análise de Texto (Origem dos Dados e Padrões de Usuários)
+### 5. Análise de Texto (Origem dos Dados e Padrões de Usuários)
 
 Esta consulta oferece uma análise profunda dos campos textuais disponíveis nos dados, buscando entender a origem dos registros e padrões de preenchimento dos usuários e hospitais.
 
@@ -99,28 +102,28 @@ Esta consulta oferece uma análise profunda dos campos textuais disponíveis nos
 
 ---
 
-### 7. Evolução das Altas vs. Óbitos (Análise Temporal)
+### 6. Evolução das Altas vs. Óbitos (Análise Temporal)
 
 Esta consulta se concentra na análise temporal da proporção entre altas e óbitos, tanto para casos suspeitos quanto confirmados, agrupados semanalmente.
 
 * **Lógica Aplicada:**
     * **`evolucao_semanal` (CTE)**: Agrupa os dados da `vw_analises` por semana (`DATE_TRUNC('week', data_notificacao)`), somando `total_altas`, `total_obitos`, e ocupações de casos confirmados e suspeitos.
-    * A consulta final calcula a `taxa_mortalidade` semanal, a `taxa_alta_ocupacao` (proporção de altas em relação à ocupação total) e a `variacao_taxa_mortalidade` em relação à semana anterior usando `LAG()`.
+    * A consulta final calcula a **`taxa_mortalidade`** semanal, a **`taxa_alta_ocupacao`** (proporção de altas em relação à ocupação total) e a **`variacao_taxa_mortalidade`** em relação à semana anterior usando `LAG()`.
 * **Aprendizado sobre os Dados:**
     * Permite monitorar a **evolução da gravidade** dos casos ao longo do tempo, indicando se as taxas de mortalidade estão aumentando ou diminuindo.
-    * A `taxa_alta_ocupacao` pode indicar a eficiência do sistema de saúde em liberar leitos.
+    * A **`taxa_alta_ocupacao`** pode indicar a eficiência do sistema de saúde em liberar leitos.
     * A **variação semanal** ajuda a identificar tendências de curto prazo e a reagir a mudanças rápidas no cenário da doença.
 
 ---
 
-### 8. Análise Adicional: Comparação entre Estados (CTE)
+### 7. Análise Adicional: Comparação entre Estados
 
 Esta consulta adicional compara o desempenho dos estados em relação à mortalidade em UTI e sua relação com a média nacional.
 
 * **Lógica Aplicada:**
-    * **`dados_estados` (CTE)**: Agrega a ocupação de UTI e óbitos por estado e mês.
-    * A consulta final calcula a `mortalidade_uti` para cada estado/mês.
-    * A `razao_vs_media_nacional` compara a mortalidade de um estado com a média nacional para aquele mês, usando uma janela de agregação com `PARTITION BY mes`.
+    * **`dados_estados` (CTE)**: Agrega a ocupação de UTI e óbitos por estado e mês (`DATE_TRUNC('month', data_notificacao)`).
+    * A consulta final calcula a **`mortalidade_uti`** para cada estado/mês.
+    * A **`razao_vs_media_nacional`** compara a mortalidade de um estado com a média nacional para aquele mês, usando uma janela de agregação com `PARTITION BY mes`. A coluna `ano_mes` foi adicionada para uma exibição formatada da data.
 * **Aprendizado sobre os Dados:**
     * Oferece um **benchmark** para os estados, permitindo identificar quais estão com taxas de mortalidade em UTI acima ou abaixo da média.
-    * Essas comparações podem subsidiar discussões sobre melhores práticas, alocação de recursos e políticas de saúde regionais.
+    * Essas comparações podem subsidiar discussões sobre **melhores práticas, alocação de recursos e políticas de saúde regionais**.
