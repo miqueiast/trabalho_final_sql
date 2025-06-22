@@ -1,4 +1,3 @@
----
 --Primeira atividade a criação de uma VIEW que facilita o nosso trabalho de análises no decorrer do processo.
 CREATE OR REPLACE VIEW vw_analises AS
 SELECT    
