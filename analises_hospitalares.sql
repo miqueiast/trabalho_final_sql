@@ -96,17 +96,33 @@ WITH ocupacao_por_estado AS (
     SELECT
         estado,
         DATE_TRUNC('month', data_notificacao) AS mes,
+        EXTRACT(YEAR FROM data_notificacao) AS ano,
+        EXTRACT(MONTH FROM data_notificacao) AS mes_numero,
         SUM(ocupacao_hospitalar_cli + ocupacao_hospitalar_uti) AS total_ocupacao,
         SUM(saida_confirmada_altas + saida_suspeita_altas) AS total_altas,
         SUM(saida_confirmada_obitos + saida_suspeita_obitos) AS total_obitos
     FROM
         vw_analises
     GROUP BY
-        estado, DATE_TRUNC('month', data_notificacao)
+        estado, DATE_TRUNC('month', data_notificacao), ano, mes_numero
 )
 SELECT
     estado,
-    mes,
+    ano,
+    CASE mes_numero
+        WHEN 1 THEN 'Janeiro'
+        WHEN 2 THEN 'Fevereiro'
+        WHEN 3 THEN 'Março'
+        WHEN 4 THEN 'Abril'
+        WHEN 5 THEN 'Maio'
+        WHEN 6 THEN 'Junho'
+        WHEN 7 THEN 'Julho'
+        WHEN 8 THEN 'Agosto'
+        WHEN 9 THEN 'Setembro'
+        WHEN 10 THEN 'Outubro'
+        WHEN 11 THEN 'Novembro'
+        WHEN 12 THEN 'Dezembro'
+    END AS mes,
     total_ocupacao,
     total_altas,
     total_obitos,
@@ -114,7 +130,7 @@ SELECT
 FROM
     ocupacao_por_estado
 ORDER BY
-    estado, mes;
+    estado, ano, mes_numero;
 
 -- 2. Subconsulta (Análise de Performance de Municípios com Subconsulta)
 -- Análise de municípios com maior taxa de mortalidade (usando subconsulta)
@@ -304,17 +320,16 @@ WITH dados_estados AS (
     FROM
         vw_analises
     GROUP BY
-        estado, DATE_TRUNC('month', data_notificacao)
+        estado, DATE_TRUNC('month', data_notificacao)  -- Corrigi para DATE_TRUNC aqui
 )
 SELECT
     estado,
-    mes,
+    TO_CHAR(mes, 'YYYY-MM') AS ano_mes,  -- Formata como '2022-01'
     uti_confirmados,
     uti_suspeitos,
     obitos_confirmados,
     obitos_suspeitos,
     ROUND((obitos_confirmados + obitos_suspeitos)::DECIMAL / NULLIF(uti_confirmados + uti_suspeitos, 0) * 100, 2) AS mortalidade_uti,
-    -- Comparação com a média nacional
     ROUND(
         ((obitos_confirmados + obitos_suspeitos)::DECIMAL / NULLIF(uti_confirmados + uti_suspeitos, 0)) / 
         NULLIF(
