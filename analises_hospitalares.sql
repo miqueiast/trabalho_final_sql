@@ -58,7 +58,7 @@ WHERE
     sub.rn = 1;
 
 
---- 1. Views ou CTEs
+--- 1. CTEs
 ---
 -- CTE para calcular a média móvel de 7 dias e a variação da ocupação de leitos de UTI
 WITH ocupacao_uti_diaria AS (
@@ -140,8 +140,7 @@ FROM (
         SUM(saida_confirmada_altas + saida_suspeita_altas) > 0
 ) AS subquery
 ORDER BY
-    taxa_mortalidade DESC
-LIMIT 20;
+    taxa_mortalidade DESC;
 
 -- 3. Detecção de Anomalias Temporais (Picos Isolados)
 -- Detecção de anomalias (picos isolados) na ocupação de UTI
@@ -158,8 +157,8 @@ estatisticas AS (
     SELECT
         dia,
         ocupacao_uti,
-        AVG(ocupacao_uti) OVER (ORDER BY dia ROWS BETWEEN 7 PRECEDING AND 7 FOLLOWING) AS media_movel,
-        STDDEV(ocupacao_uti) OVER (ORDER BY dia ROWS BETWEEN 7 PRECEDING AND 7 FOLLOWING) AS desvio_padrao
+        ROUND(AVG(ocupacao_uti) OVER (ORDER BY dia ROWS BETWEEN 7 PRECEDING AND 7 FOLLOWING), 2) AS media_movel,
+        ROUND(STDDEV(ocupacao_uti) OVER (ORDER BY dia ROWS BETWEEN 7 PRECEDING AND 7 FOLLOWING), 2) AS desvio_padrao
     FROM
         ocupacao_diaria
 )
@@ -168,8 +167,8 @@ SELECT
     ocupacao_uti,
     media_movel,
     desvio_padrao,
-    (ocupacao_uti - media_movel) AS diferenca_media,
-    ((ocupacao_uti - media_movel) / NULLIF(desvio_padrao, 0)) AS z_score
+    ROUND((ocupacao_uti - media_movel), 2) AS diferenca_media,
+    ROUND(((ocupacao_uti - media_movel) / NULLIF(desvio_padrao, 0)), 2) AS z_score
 FROM
     estatisticas
 WHERE
