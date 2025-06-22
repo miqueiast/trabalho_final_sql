@@ -1,3 +1,4 @@
+---
 --Primeira atividade a criação de uma VIEW que facilita o nosso trabalho de análises no decorrer do processo.
 CREATE OR REPLACE VIEW vw_analises AS
 SELECT    
@@ -63,7 +64,6 @@ WHERE
 WITH ocupacao_uti_diaria AS (
     SELECT
         data_notificacao,
-        -- Soma as ocupações de UTI para casos suspeitos, confirmados e COVID
         SUM(ocupacao_suspeito_uti + ocupacao_confirmado_uti + ocupacao_covid_uti) AS total_leitos_uti_dia
     FROM
         vw_analises
@@ -196,17 +196,13 @@ ORDER BY
 -- Análise de texto aprimorada com todos os campos textuais relevantes
 WITH dados_textuais AS (
     SELECT
-        -- Dados de origem/envio
         se.origem,
-        se.usuario_sistema,        
-        -- Dados de localidade
+        se.usuario_sistema,     
         l.estado,
         l.municipio,
         l.estado_notificacao,
         l.municipio_notificacao,        
-        -- Dados do hospital
         h.cnes,        
-        -- Dados de ocupação (para métricas)
         ro.saida_confirmada_obitos,
         ro.saida_suspeita_obitos,
         ro.saida_confirmada_altas,
@@ -241,7 +237,6 @@ WITH dados_textuais AS (
         hospital h ON ro.id_hospital = h.id_hospital
 )
 SELECT
-    -- Agrupamento por características textuais
     origem,
     tipo_usuario,
     tipo_cnes,
@@ -250,14 +245,11 @@ SELECT
     COUNT(*) AS total_registros,
     COUNT(DISTINCT estado) AS estados_afetados,
     COUNT(DISTINCT municipio) AS municipios_afetados,
-    COUNT(DISTINCT cnes) AS hospitais_afetados,    
-    -- Métricas de saúde
+    COUNT(DISTINCT cnes) AS hospitais_afetados,
     SUM(COALESCE(saida_confirmada_obitos, 0)) + SUM(COALESCE(saida_suspeita_obitos, 0)) AS total_obitos,
-    SUM(COALESCE(saida_confirmada_altas, 0)) + SUM(COALESCE(saida_suspeita_altas, 0)) AS total_altas,    
-    -- Médias
+    SUM(COALESCE(saida_confirmada_altas, 0)) + SUM(COALESCE(saida_suspeita_altas, 0)) AS total_altas,
     ROUND(AVG(COALESCE(saida_confirmada_obitos, 0) + COALESCE(saida_suspeita_obitos, 0)), 2) AS media_obitos,
-    ROUND(AVG(COALESCE(saida_confirmada_altas, 0) + COALESCE(saida_suspeita_altas, 0)), 2) AS media_altas,    
-    -- Proporções
+    ROUND(AVG(COALESCE(saida_confirmada_altas, 0) + COALESCE(saida_suspeita_altas, 0)), 2) AS media_altas,
     ROUND(
         (SUM(COALESCE(saida_confirmada_obitos, 0)) + SUM(COALESCE(saida_suspeita_obitos, 0)))::DECIMAL / 
         NULLIF(SUM(COALESCE(saida_confirmada_altas, 0)) + SUM(COALESCE(saida_suspeita_altas, 0)) + 
@@ -296,7 +288,6 @@ SELECT
     ocupacao_suspeitos,
     ROUND((total_obitos::DECIMAL / NULLIF(total_altas + total_obitos, 0)) * 100, 2) AS taxa_mortalidade,
     ROUND((total_altas::DECIMAL / NULLIF(ocupacao_confirmados + ocupacao_suspeitos, 0)) * 100, 2) AS taxa_alta_ocupacao,
-    -- Diferença em relação à semana anterior
     ROUND((
         (total_obitos::DECIMAL / NULLIF(total_altas + total_obitos, 0)) - 
         LAG(total_obitos::DECIMAL / NULLIF(total_altas + total_obitos, 0)) OVER (ORDER BY semana)
@@ -319,11 +310,11 @@ WITH dados_estados AS (
     FROM
         vw_analises
     GROUP BY
-        estado, DATE_TRUNC('month', data_notificacao)  -- Corrigi para DATE_TRUNC aqui
+        estado, DATE_TRUNC('month', data_notificacao)
 )
 SELECT
     estado,
-    TO_CHAR(mes, 'YYYY-MM') AS ano_mes,  -- Formata como '2022-01'
+    TO_CHAR(mes, 'YYYY-MM') AS ano_mes, 
     uti_confirmados,
     uti_suspeitos,
     obitos_confirmados,
